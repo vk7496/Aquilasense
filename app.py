@@ -1,39 +1,44 @@
 import streamlit as st
-import requests
 import pandas as pd
+import numpy as np
 import plotly.express as px
 from sklearn.ensemble import IsolationForest
+from datetime import datetime
 
 st.set_page_config(page_title="AquilaSense", layout="wide")
 st.title("AquilaSense – AI Industrial Monitoring")
 st.caption("Developed by Vista Kaviani – AI Solution Developer")
 
-API_URL = "http://localhost:8000/data"
+# -------- DEMO MODE DATA --------
+def generate_data(n=200):
+    return pd.DataFrame({
+        "time": pd.date_range(end=datetime.utcnow(), periods=n, freq="S"),
+        "pressure": np.random.normal(60, 5, n),
+        "temperature": np.random.normal(40, 3, n),
+        "flow": np.random.normal(20, 2, n)
+    })
 
-@st.cache_data(ttl=5)
-def load_data():
-    r = requests.get(API_URL)
-    return pd.DataFrame(r.json())
+df = generate_data()
 
-df = load_data()
-
-if df.empty:
-    st.warning("Waiting for sensor data...")
-    st.stop()
-
+# -------- AI MODEL --------
 features = df[["pressure", "temperature", "flow"]]
 model = IsolationForest(contamination=0.05)
 df["anomaly"] = model.fit_predict(features)
 
+# -------- DASHBOARD --------
 col1, col2 = st.columns(2)
 
 with col1:
-    fig = px.line(df, y="pressure", title="Pressure")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(
+        px.line(df, x="time", y="pressure", title="Pressure"),
+        use_container_width=True
+    )
 
 with col2:
-    fig = px.line(df, y="flow", title="Flow")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(
+        px.line(df, x="time", y="flow", title="Flow"),
+        use_container_width=True
+    )
 
 st.subheader("Detected Anomalies")
 st.dataframe(df[df["anomaly"] == -1])
